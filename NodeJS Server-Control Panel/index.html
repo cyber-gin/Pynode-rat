@@ -1,0 +1,126 @@
+<html>
+<head>
+<title>
+    Viewer
+</title>
+<style>
+#screen{
+    width:775px
+}
+</style>
+<script>
+  const socket = new WebSocket('ws://vpn-ip:8080');
+  socket.binaryType = 'arraybuffer';
+  var timesPerSecond = 5; // how many times to fire the event per second
+var wait = false;
+
+// Connection opened
+socket.onerror = function (event) {
+  console.log('Connection error');
+};
+socket.onopen = function (event) {
+    socket.send(JSON.stringify({
+        type: 'handshake',
+        data: 'anon',
+        pass:'rootbot'
+    }));
+    setInterval(function(){
+       socket.send(JSON.stringify({
+        type: 'ping',
+    }));
+    },5000);
+    document.getElementById('screen').addEventListener('click', function (event) {
+        socket.send(JSON.stringify({
+            type: 'click',
+            data: {
+                x: event.clientX,
+                y: event.clientY,
+                pass:'rootbot'
+            }
+        }));
+    });
+    document.getElementById('screen').addEventListener('dblclick', function (event) {
+        event.preventDefault();
+        socket.send(JSON.stringify({
+            type: 'doubleclick',
+            data: {
+                x: event.clientX,
+                y: event.clientY,
+                pass:'rootbot'
+            }
+        }));
+    });
+    window.addEventListener('keydown', function (e) { 
+        function doWhichKey(e) { 
+            e = e || window.event; 
+            let charCode = e.keyCode || e.which; 
+            return String.fromCharCode(charCode); 
+            } 
+            socket.send(JSON.stringify({
+                type: 'keypress',
+                data: {
+                    key: doWhichKey(e),
+                    pass:'rootbot'
+                }
+            }));
+    }, false);
+    
+
+    document.getElementById('screen').addEventListener('mousemove', function (event) {
+          // don't handle events when one has just occurred
+    if (!wait) {
+        // fire the event
+        bounds=this.getBoundingClientRect();
+        var left=bounds.left;
+        var top=bounds.top;
+        var x = event.pageX - left;
+        var y = event.pageY - top;
+        var cw=this.clientWidth
+        var ch=this.clientHeight
+        var iw=this.naturalWidth
+        var ih=this.naturalHeight
+        var px=x/cw*iw
+        var py=y/ch*ih
+        socket.send(JSON.stringify({
+            type: 'move',
+            data: {
+                x:px,
+                y:py,
+                pass:'rootbot'
+            }
+        }));
+        // stop any further events
+        wait = true;
+        // after a fraction of a second, allow events again
+        setTimeout(function () {
+            wait = false;
+        }, 1000 / timesPerSecond);
+    } 
+
+  });
+
+}
+
+socket.onclose = function(event) {
+    console.log('Connection closed');
+};
+// Listen for messages
+socket.onmessage =  function (event) {
+    if(!event.data.byteLength) return;
+   let content = new Uint8Array(event.data);
+    let blob = new Blob([content], {type: 'image/jpeg'});
+    let url = URL.createObjectURL(blob);
+    //add randomness to the image name
+    let random = Math.floor(Math.random() * 100000);
+    document.getElementById('screen').src = url
+    //revokeObjectURL is needed to free memory
+    setTimeout(function(){
+        URL.revokeObjectURL(url);
+    },1);
+}
+</script>
+</head>
+<body>
+    <img id="screen" />
+</body>
+</html>
